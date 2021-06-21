@@ -1,0 +1,12 @@
+{
+  "extract": {
+               "url": "https://data.cityofchicago.org/resource/85ca-t3if.json",
+               "fields": [ 
+                           "crash_record_id",
+                           "crash_date",
+                           "latitude",
+                           "longitude"
+                         ],
+               "limit": 10       
+             }
+}               
