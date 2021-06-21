@@ -8,5 +8,8 @@
                            "longitude"
                          ],
                "limit": 10       
-             }
+             },
+  "transform": {
+                 "parallel_slizes": 10
+               }
 }               
