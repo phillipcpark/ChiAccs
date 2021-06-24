@@ -21,8 +21,8 @@ def request_get(url)->list:
     r_json_list = response.json() 
     return r_json_list
 
-#
-def load_dframe(config, contexts: dict) -> pyspark.sql.DataFrame:
+# load dataframe based on config read from file 
+def load_dframe(config: dict, contexts: dict) -> pyspark.sql.DataFrame:
     request_url = url_from_fields(url    = config["extract"]["url"], \
                                   fields = config["extract"]["fields"], \
                                   limit  = config["extract"]["limit"])
