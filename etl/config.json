@@ -7,7 +7,7 @@
                            "latitude",
                            "longitude"
                          ],
-               "limit": 100 
+               "limit": 1000 
              },
   "transform": {
                  "compute_dimensions": {

@@ -8,13 +8,14 @@ from sklearn.cluster import KMeans
 @F.udf(T.StructType([T.StructField("tm_year", T.IntegerType(), False),\
                      T.StructField("tm_mon", T.IntegerType(), False),\
                      T.StructField("tm_mday", T.IntegerType(), False),\
+                     T.StructField("tm_hour", T.IntegerType(), False),\
                      T.StructField("tm_yday", T.IntegerType(), False),\
                      T.StructField("tm_wday", T.IntegerType(), False)]))
 def datestring_to_dict(date: str):
     time_format = '%Y-%m-%dT%H:%M:%S.%f'
     date_comps  = dt.strptime(date, time_format).timetuple()
     return (date_comps.tm_year, date_comps.tm_mon, date_comps.tm_mday,\
-            date_comps.tm_yday, date_comps.tm_wday)
+            date_comps.tm_hour, date_comps.tm_yday, date_comps.tm_wday)
 
 @F.udf(T.IntegerType())
 def hours_since_uepoch(date: str):
