@@ -14,7 +14,7 @@ if __name__=='__main__':
     ca_df    = load_dframe(config, contexts)
 
     #extract date components, consistent with time.struct_time attributes 
-    ca_df = ca_df.withColumn('date_attributes', udfs.datestring_to_dict(F.col('crash_date')))
+    ca_df = ca_df.withColumn('date_components', udfs.datestring_to_dict(F.col('crash_date')))
 
     #cluster accidents based on coordinates, to subdivide city
     clust_attrs = ['latitude', 'longitude']
@@ -24,8 +24,7 @@ if __name__=='__main__':
                                     target_key   = 'cluster_id', \
                                     join_key     = 'crash_record_id') 
 
-    #integer representation of accident date, for sorting and windowing
-    ca_df = ca_df.withColumn('hours_since_uepoch', udfs.hours_since_uepoch(F.col('crash_date')))
-    ca_df = ca_df.sort('hours_since_uepoch', ascending=False)
-
+    # scalar representation of date, for sorting and windowing 
+    ca_df = ca_df.withColumn('utc_timestamp', udfs.hours_since_uepoch(F.col('crash_date')))
+    ca_df = ca_df.sort('utc_timestamp', ascending=False)
 

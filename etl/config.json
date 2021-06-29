@@ -7,9 +7,9 @@
                            "latitude",
                            "longitude"
                          ],
-               "limit": 25000       
+               "limit": 100 
              },
   "transform": {
-                 "parallel_slices": 10
+                 "parallel_slices": 1
                }
 }               
