@@ -27,7 +27,9 @@ def load_dframe(config: dict, contexts: dict) -> pyspark.sql.DataFrame:
                                   fields = config["extract"]["fields"], \
                                   limit  = config["extract"]["limit"])
     df = request_get(request_url)
-    df = contexts['spark'].parallelize(df, numSlices=config["transform"]["parallel_slices"])           
+    df = contexts['spark'].parallelize(df, numSlices=config["transform"] \
+                                                           ["compute_dimensions"] \
+                                                           ["parallel_slices"])           
     df = contexts['sql'].read.json(df)
     df = df.dropna()
 

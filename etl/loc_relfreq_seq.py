@@ -13,18 +13,21 @@ if __name__=='__main__':
     contexts = utils.init_contexts()
     ca_df    = load_dframe(config, contexts)
 
-    #extract date components, consistent with time.struct_time attributes 
-    ca_df = ca_df.withColumn('date_components', udfs.datestring_to_dict(F.col('crash_date')))
-
-    #cluster accidents based on coordinates, to subdivide city
+    # extract date components from datestring and distribute to columns   
+    ca_df = udfs.distr_datestring(ca_df, 'crash_date')
+ 
+    # cluster accidents based on coordinates, to subdivide city
     clust_attrs = ['latitude', 'longitude']
     ca_df       = udfs.cluster_join(context      = contexts['sql'],\
                                     target_df    = ca_df,\
                                     feature_keys = clust_attrs, \
                                     target_key   = 'cluster_id', \
-                                    join_key     = 'crash_record_id') 
+                                    join_key     = 'crash_record_id', \
+                                    num_clusts   = config['transform']['clustering']['cluster_count']) 
 
     # scalar representation of date, for sorting and windowing 
     ca_df = ca_df.withColumn('utc_timestamp', udfs.hours_since_uepoch(F.col('crash_date')))
     ca_df = ca_df.sort('utc_timestamp', ascending=False)
 
+    ca_df.show(100)
+   

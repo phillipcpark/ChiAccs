@@ -4,12 +4,17 @@ from pytz import timezone
 from pyspark.sql import DataFrame, SQLContext, functions as F, types as T
 from sklearn.cluster import KMeans
 
-@F.udf(T.MapType(T.StringType(), T.IntegerType()))
+
+@F.udf(T.StructType([T.StructField("tm_year", T.IntegerType(), False),\
+                     T.StructField("tm_mon", T.IntegerType(), False),\
+                     T.StructField("tm_mday", T.IntegerType(), False),\
+                     T.StructField("tm_yday", T.IntegerType(), False),\
+                     T.StructField("tm_wday", T.IntegerType(), False)]))
 def datestring_to_dict(date: str):
     time_format = '%Y-%m-%dT%H:%M:%S.%f'
-    date_as_dt  = dt.strptime(date, time_format)
-    date_dict   = struct_time_as_dict(date_as_dt.timetuple())
-    return date_dict
+    date_comps  = dt.strptime(date, time_format).timetuple()
+    return (date_comps.tm_year, date_comps.tm_mon, date_comps.tm_mday,\
+            date_comps.tm_yday, date_comps.tm_wday)
 
 @F.udf(T.IntegerType())
 def hours_since_uepoch(date: str):
@@ -25,26 +30,24 @@ def hours_since_uepoch(date: str):
     utc_stamp = dt.timestamp(chi_dt) 
     return int(utc_stamp)
 
-# convert time.struct_time instances to dictionaries, with keys consistent with attributes 
-def struct_time_as_dict(time: struct_time):
-    st_dict = {
-               'tm_year':   time.tm_year, 
-               'tm_yday':   time.tm_yday, 
-               'tm_hour':   time.tm_hour, 
-               'tm_min' :   time.tm_min,
-               'tm_mon':    time.tm_mon,  
-               'tm_mday':   time.tm_mday, 
-               'tm_wday':   time.tm_wday, 
-               'tm_is_dst': time.tm_isdst 
-              } 
-    return st_dict
+#
+# non UDFs, but are used in conjunction, or have a similar transform role 
+#
+
+# slice datestring into components and distribute into columns named by time.struct_time attributes 
+def distr_datestring(df: DataFrame, datestring_key: str) -> DataFrame:
+    placeholder = 'date_comps' 
+    df          = df.withColumn(placeholder, datestring_to_dict(F.col(datestring_key)))\
+                    .select('*', placeholder+'.*')
+    df = df.drop(placeholder) 
+    return df
 
 # clusters rows in target_df, based on feature_keys, then create new column in target with cluster IDs
-def cluster_join(context: SQLContext, target_df: DataFrame, \
-                 feature_keys: list, target_key: str, join_key: str) -> DataFrame: 
+def cluster_join(context: SQLContext, target_df: DataFrame, feature_keys: list, \
+                 target_key: str, join_key: str, num_clusts: int) -> DataFrame: 
 
     features = target_df.select(feature_keys).collect()
-    labels   = KMeans().fit(features).labels_.tolist()
+    labels   = KMeans(n_clusters = num_clusts).fit(features).labels_.tolist()
 
     join_vals = target_df.select(join_key).collect()
     to_join   = [{target_key: labels[row_idx], join_key: join_vals[row_idx][join_key]} \

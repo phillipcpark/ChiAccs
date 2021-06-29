@@ -10,6 +10,11 @@
                "limit": 100 
              },
   "transform": {
-                 "parallel_slices": 1
+                 "compute_dimensions": {
+                                         "parallel_slices": 1
+                                       },
+                 "clustering": {
+                                 "cluster_count": 4
+                               }
                }
 }               
