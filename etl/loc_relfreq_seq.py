@@ -3,6 +3,8 @@ import ca_udfs as udfs
 from ca_extract import load_dframe
 from pyspark.sql import functions as F
 
+import pandas as pd
+
 from copy import deepcopy
 
 import sys #NOTE debug
@@ -33,6 +35,8 @@ if __name__=='__main__':
     ca_df = ca_df.withColumn('utc_timestamp', udfs.hours_since_uepoch(F.col('crash_date')))
     ca_df = ca_df.sort('utc_timestamp', ascending=False)
 
+
+
     #
     # NOTE proto windowing
     #
@@ -41,33 +45,69 @@ if __name__=='__main__':
     from pytz import timezone
     from dateutil.relativedelta import relativedelta
 
-    # for now, number of steps is predetermined, but will need logic later on to automatically infer
-    steps   = 20
-    stride  = timedelta(hours=-2)
-    lags    = [relativedelta(years=-1) + timedelta(days=-1), relativedelta(years=-1) + relativedelta(weeks=-1)]
-    win_szs = [timedelta(days=14), relativedelta(weeks=4)] 
+    steps   = 10 # steps predetermined, need logic to automatically infer
+    stride  = timedelta(hours=-24)
+    lags    = [ relativedelta(years=-1) + timedelta(days=-1),
+                relativedelta(years=-1) + relativedelta(weeks=-1) ]
+    win_szs = [ timedelta(days=7),
+                relativedelta(weeks=4) ] 
 
+    # need to enumerate all cluster ids, since some may not be observed in window
+    clust_ids = ca_df.select('cluster_id').distinct().sort('cluster_id')
+    clust_ids = clust_ids.withColumn('rel_freq', F.lit(0.0))
+ 
+    # get starting position; last acc for now, needs to be stride-aligned
     latest_acc = ca_df.select('crash_date').head()['crash_date']
 
-    # create datetime instance, and set tz to Chicago
-    naive_dt  = dt.strptime(latest_acc,'%Y-%m-%dT%H:%M:%S.%f')
-    target_tz = timezone('America/Chicago')
-    chi_dt    = target_tz.localize(naive_dt)
-    curr_pos  = chi_dt #assume stride-aligned, for now     
+    naive_dt   = dt.strptime(latest_acc,'%Y-%m-%dT%H:%M:%S.%f')
+    curr_pos   = timezone('America/Chicago').localize(naive_dt)
+
+    # each (lag, win_sz) pair will have different frame, and will be merged at end
+    headers = [row['cluster_id'] for row in clust_ids.select('cluster_id').collect()]
+
+    ts_dfs = { str(lag)+'_'+str(win_sz): [] for lag in lags \
+                                            for win_sz in win_szs }
+
+    # pandas faster for sliding windos
+    clust_ids = clust_ids.toPandas()
+    ca_df = ca_df.toPandas()
 
     for step in range(steps):
         for lag in lags:
             for win_sz in win_szs:
+
+                # extract window
                 win_end   = curr_pos + lag 
                 win_start = win_end - win_sz
-
                 win_end   = win_end.timestamp()
-                win_start = win_start.timestamp()
+                win_start = win_start.timestamp()                
+                win = ca_df[ca_df['utc_timestamp'].between(win_start, win_end)]
                 
-                win = ca_df.filter(ca_df['utc_timestamp'].between(win_start, win_end))
+                # compute relative freqs over clusters
+                total_accs = win['cluster_id'].count()        
+                rel_freqs  = clust_ids[['cluster_id', 'rel_freq']]
+            
+                if (total_accs == 0):
+                    rel_freqs['rel_freq'] = pd.Series([0.125 for i in range(8)])
+                else:                
+                    rel_freqs['counts']   = win.groupby(['cluster_id']).size() 
+                    rel_freqs['counts']   = rel_freqs['counts'].fillna(0.0) 
+                    rel_freqs['rel_freq'] = rel_freqs['counts']/float(total_accs)    
+                    rel_freqs             = rel_freqs[['cluster_id', 'rel_freq']]
+
+                #good up to here
+                print(rel_freqs)
+                sys.exit(0)
+
+                curr_key = str(lag) + '_' + str(win_sz)
+                ts_dfs[curr_key].append(rel_freqs)        
         curr_pos = curr_pos + stride
-
-
+  
+    # combine dfs
+    #df = ts_dfs[str(lags[0]) + '_' + str(win_szs[0])][0]
+    #for _df in ts_dfs[str(lags[0]) + '_' + str(win_szs[0])][1:]:
+    #    df = df.union(_df)
+    #df.show()
 
 
 

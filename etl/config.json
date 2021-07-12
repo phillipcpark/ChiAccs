@@ -7,14 +7,14 @@
                            "latitude",
                            "longitude"
                          ],
-               "limit": 1000 
+               "limit": 10000 
              },
   "transform": {
                  "compute_dimensions": {
-                                         "parallel_slices": 1
+                                         "parallel_slices": 10
                                        },
                  "clustering": {
-                                 "cluster_count": 4
+                                 "cluster_count": 8
                                }
                }
 }               
